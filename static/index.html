@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Music Rec Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { 50: '#f8fafc', 100: '#1e1e2e', 200: '#181825', 300: '#11111b', 400: '#0a0a14' },
+            accent: { DEFAULT: '#a78bfa', light: '#c4b5fd', dark: '#7c3aed' },
+            mint: '#6ee7b7',
+            rose: '#fda4af',
+            spotify: '#1DB954',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .prose h1, .prose h2, .prose h3 { color: #c4b5fd; margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; }
+    .prose h1 { font-size: 1.5em; }
+    .prose h2 { font-size: 1.25em; }
+    .prose h3 { font-size: 1.1em; }
+    .prose p { margin-bottom: 0.75em; line-height: 1.7; }
+    .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 0.75em; }
+    .prose li { margin-bottom: 0.25em; }
+    .prose strong { color: #a78bfa; }
+    .prose em { color: #6ee7b7; }
+    .prose code { background: rgba(167, 139, 250, 0.15); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; }
+    .pulse-dot { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #11111b; }
+    ::-webkit-scrollbar-thumb { background: #313244; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-dark-300 text-gray-200 min-h-screen">
+  <div id="app" class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-72 bg-dark-400 border-r border-gray-800 flex flex-col">
+      <div class="p-6 border-b border-gray-800">
+        <h1 class="text-xl font-bold text-white flex items-center gap-2">
+          <span class="text-2xl">🎵</span> Music Rec Engine
+        </h1>
+        <p class="text-xs text-gray-500 mt-1">Pinecone + Gemini + Spotify</p>
+      </div>
+
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+        <button
+          v-for="feature in features"
+          :key="feature.id"
+          @click="selectFeature(feature.id)"
+          :class="[
+            'w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3 group',
+            active === feature.id
+              ? 'bg-accent/20 text-accent-light border border-accent/30'
+              : 'hover:bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
+          ]"
+        >
+          <span class="text-lg">{{ feature.icon }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium flex items-center gap-2">
+              {{ feature.name }}
+              <span v-if="feature.needsSpotify" class="text-[10px] text-spotify bg-spotify/10 px-1.5 py-0.5 rounded-full">Spotify</span>
+            </div>
+            <div class="text-xs text-gray-500 group-hover:text-gray-400">{{ feature.desc }}</div>
+          </div>
+        </button>
+      </nav>
+
+      <!-- Spotify auth + bulk index -->
+      <div class="p-4 border-t border-gray-800 space-y-2">
+        <!-- Spotify login/status -->
+        <div v-if="spotifyUser" class="flex items-center gap-3 px-3 py-2 bg-spotify/10 rounded-lg">
+          <img v-if="spotifyImage" :src="spotifyImage" class="w-7 h-7 rounded-full" />
+          <div v-else class="w-7 h-7 rounded-full bg-spotify/30 flex items-center justify-center text-xs text-spotify">♪</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-spotify font-medium truncate">{{ spotifyUser }}</div>
+            <div class="text-[10px] text-gray-500">Connected</div>
+          </div>
+          <a href="/auth/logout" class="text-xs text-gray-500 hover:text-gray-300">Logout</a>
+        </div>
+        <a
+          v-else
+          href="/auth/login"
+          class="flex items-center justify-center gap-2 px-4 py-2.5 bg-spotify/90 hover:bg-spotify text-white text-sm rounded-lg transition font-medium"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Connect Spotify
+        </a>
+
+        <button
+          @click="bulkIndex"
+          :disabled="indexing"
+          class="w-full px-4 py-2 bg-mint/10 text-mint text-sm rounded-lg hover:bg-mint/20 transition disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <span v-if="indexing" class="pulse-dot">●</span>
+          <span>{{ indexing ? 'Indexing...' : '📦 Bulk Index Catalog' }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <header class="px-8 py-5 border-b border-gray-800 bg-dark-200/50">
+        <h2 class="text-lg font-semibold text-white">{{ currentFeature.name }}</h2>
+        <p class="text-sm text-gray-500">{{ currentFeature.longDesc }}</p>
+      </header>
+
+      <div class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-3xl mx-auto">
+
+          <!-- Spotify login prompt for features that need it -->
+          <div v-if="currentFeature.needsSpotify && !spotifyUser" class="mb-6 bg-spotify/5 border border-spotify/20 rounded-xl p-6 text-center">
+            <p class="text-gray-400 mb-3">This feature requires your Spotify data</p>
+            <a href="/auth/login" class="inline-flex items-center gap-2 px-6 py-2.5 bg-spotify hover:bg-spotify/80 text-white rounded-lg font-medium transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+              Connect Spotify to Continue
+            </a>
+          </div>
+
+          <!-- Search -->
+          <div v-if="active === 'search'" class="space-y-4">
+            <div class="flex gap-3">
+              <input v-model="inputs.search" @keyup.enter="run" placeholder="e.g., aggressive electronic music, chill vibes..." class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
+              <button @click="run" :disabled="loading" class="px-6 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Search</button>
+            </div>
+          </div>
+
+          <!-- Explain Taste -->
+          <div v-if="active === 'taste' && spotifyUser" class="space-y-4">
+            <div class="bg-dark-400/50 border border-gray-700 rounded-xl p-6 text-center">
+              <p class="text-gray-400 mb-4">Analyzes your Spotify top tracks across three time periods</p>
+              <button @click="run" :disabled="loading" class="px-8 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Analyze My Taste</button>
+            </div>
+          </div>
+
+          <!-- Track DNA -->
+          <div v-if="active === 'track-dna'" class="space-y-4">
+            <div class="flex gap-3">
+              <input v-model="inputs.trackDna" @keyup.enter="run" placeholder="e.g., Windowlicker by Aphex Twin..." class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
+              <button @click="run" :disabled="loading" class="px-6 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Analyze</button>
+            </div>
+          </div>
+
+          <!-- Playlist Roast -->
+          <div v-if="active === 'roast' && spotifyUser" class="space-y-4">
+            <div class="bg-dark-400/50 border border-gray-700 rounded-xl p-6 text-center">
+              <p class="text-gray-400 mb-4">Get your music taste brutally (but lovingly) roasted</p>
+              <button @click="run" :disabled="loading" class="px-8 py-3 bg-rose/80 hover:bg-rose text-dark-300 rounded-xl font-medium transition disabled:opacity-50">🔥 Roast Me</button>
+            </div>
+          </div>
+
+          <!-- Mood Timeline -->
+          <div v-if="active === 'mood-timeline'" class="space-y-4">
+            <textarea v-model="inputs.moodTimeline" @keyup.ctrl.enter="run" placeholder="Describe your day...&#10;e.g., morning coffee → stressful meetings → gym → chill evening" rows="3" class="w-full bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition resize-none"></textarea>
+            <button @click="run" :disabled="loading" class="px-8 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Build Timeline</button>
+          </div>
+
+          <!-- Music Matchmaker -->
+          <div v-if="active === 'matchmaker'" class="space-y-4">
+            <div v-if="spotifyUser">
+              <label class="text-sm text-gray-400 mb-2 block">Your friend's favorite artists (comma-separated)</label>
+              <input v-model="inputs.matchmaker" @keyup.enter="run" placeholder="e.g., radiohead, boards of canada, four tet" class="w-full bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
+              <button @click="run" :disabled="loading" class="mt-4 px-8 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Find Common Ground</button>
+            </div>
+          </div>
+
+          <!-- Music Debate -->
+          <div v-if="active === 'debate'" class="space-y-4">
+            <div class="flex gap-3">
+              <input v-model="inputs.debate" @keyup.enter="run" placeholder="e.g., Kanye West, trap music, autotune..." class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
+              <button @click="run" :disabled="loading" class="px-6 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">⚖️ Debate</button>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div v-if="loading" class="mt-8 flex items-center gap-3 text-gray-400">
+            <div class="flex gap-1">
+              <span class="pulse-dot text-accent">●</span>
+              <span class="pulse-dot text-accent" style="animation-delay: 0.3s">●</span>
+              <span class="pulse-dot text-accent" style="animation-delay: 0.6s">●</span>
+            </div>
+            <span class="text-sm">{{ loadingText }}</span>
+          </div>
+
+          <!-- Error -->
+          <div v-if="error" class="mt-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+            <p class="text-red-400 text-sm">{{ error }}</p>
+          </div>
+
+          <!-- Result -->
+          <div v-if="result && !loading" class="mt-8">
+            <div v-if="tracks.length" class="mb-6 grid gap-2">
+              <div v-for="(track, i) in tracks" :key="track.id" class="flex items-center gap-4 bg-dark-400/50 border border-gray-800 rounded-lg px-4 py-3 hover:border-accent/30 transition">
+                <span class="text-accent font-mono text-sm w-6">{{ i + 1 }}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-white text-sm font-medium truncate">{{ track.name }}</div>
+                  <div class="text-gray-500 text-xs truncate">{{ track.artist }} · {{ track.album }}</div>
+                </div>
+                <div class="text-xs text-accent/70 font-mono">{{ (track.score * 100).toFixed(0) }}%</div>
+              </div>
+            </div>
+            <div class="bg-dark-400/30 border border-gray-800 rounded-xl p-6">
+              <div class="prose text-gray-300 text-sm leading-relaxed" v-html="renderedResult"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue
+
+    createApp({
+      setup() {
+        const features = [
+          { id: 'search', name: 'Search & Recommend', icon: '🔍', desc: 'Natural language search', longDesc: 'Describe the vibe you want — get matching tracks with AI explanations.', needsSpotify: false },
+          { id: 'taste', name: 'Explain My Taste', icon: '🧠', desc: 'Spotify taste analysis', longDesc: 'Deep analysis of your listening personality across time periods.', needsSpotify: true },
+          { id: 'track-dna', name: 'Track DNA', icon: '🧬', desc: 'Why does it sound like this?', longDesc: 'Understand what makes a track tick — its sonic lineage and where to go next.', needsSpotify: false },
+          { id: 'roast', name: 'Playlist Roast', icon: '🔥', desc: 'Get roasted', longDesc: 'A brutally funny (but loving) roast of your music taste.', needsSpotify: true },
+          { id: 'mood-timeline', name: 'Mood Timeline', icon: '🌅', desc: 'Playlist for your day', longDesc: 'Describe your day and get a playlist that evolves with each moment.', needsSpotify: false },
+          { id: 'matchmaker', name: 'Music Matchmaker', icon: '💘', desc: 'Compare with a friend', longDesc: 'Find musical common ground between you and a friend.', needsSpotify: true },
+          { id: 'debate', name: 'Music Debate', icon: '⚖️', desc: 'SOUND COURT', longDesc: 'Two AI critics battle it out over a track or artist. Who wins?', needsSpotify: false },
+        ]
+
+        const active = ref('search')
+        const loading = ref(false)
+        const result = ref('')
+        const tracks = ref([])
+        const error = ref('')
+        const indexing = ref(false)
+        const spotifyUser = ref(null)
+        const spotifyImage = ref(null)
+
+        const inputs = ref({
+          search: '', trackDna: '', moodTimeline: '', matchmaker: '', debate: '',
+        })
+
+        const currentFeature = computed(() => features.find(f => f.id === active.value) || features[0])
+
+        const loadingTexts = {
+          search: 'Searching and generating recommendations...',
+          taste: 'Analyzing your Spotify listening data...',
+          'track-dna': 'Dissecting track DNA...',
+          roast: 'Preparing your roast... this might hurt...',
+          'mood-timeline': 'Building your mood timeline...',
+          matchmaker: 'Finding common ground...',
+          debate: 'Court is now in session...',
+        }
+        const loadingText = computed(() => loadingTexts[active.value] || 'Thinking...')
+        const renderedResult = computed(() => result.value ? marked.parse(result.value) : '')
+
+        function selectFeature(id) {
+          active.value = id
+          result.value = ''
+          tracks.value = []
+          error.value = ''
+        }
+
+        async function checkAuth() {
+          try {
+            const res = await fetch('/auth/status')
+            const data = await res.json()
+            if (data.logged_in) {
+              spotifyUser.value = data.user
+              spotifyImage.value = data.image
+            }
+          } catch (e) {}
+        }
+
+        async function run() {
+          loading.value = true
+          result.value = ''
+          tracks.value = []
+          error.value = ''
+
+          const endpoints = {
+            search: { url: '/api/search', body: { query: inputs.value.search } },
+            taste: { url: '/api/taste', body: {} },
+            'track-dna': { url: '/api/track-dna', body: { query: inputs.value.trackDna } },
+            roast: { url: '/api/roast', body: {} },
+            'mood-timeline': { url: '/api/mood-timeline', body: { day: inputs.value.moodTimeline } },
+            matchmaker: {
+              url: '/api/matchmaker',
+              body: { friend_artists: inputs.value.matchmaker.split(',').map(s => s.trim()).filter(Boolean) }
+            },
+            debate: { url: '/api/debate', body: { query: inputs.value.debate } },
+          }
+
+          const ep = endpoints[active.value]
+          try {
+            const res = await fetch(ep.url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(ep.body),
+            })
+            if (!res.ok) {
+              const data = await res.json()
+              throw new Error(data.detail || `HTTP ${res.status}`)
+            }
+            const data = await res.json()
+            result.value = data.response || ''
+            tracks.value = data.tracks || []
+          } catch (e) {
+            error.value = e.message
+          } finally {
+            loading.value = false
+          }
+        }
+
+        async function bulkIndex() {
+          indexing.value = true
+          try {
+            const res = await fetch('/api/index/bulk', { method: 'POST' })
+            if (!res.ok) throw new Error('Indexing failed')
+            alert('Bulk indexing complete!')
+          } catch (e) {
+            alert('Error: ' + e.message)
+          } finally {
+            indexing.value = false
+          }
+        }
+
+        onMounted(checkAuth)
+
+        return {
+          features, active, loading, result, tracks, error, inputs,
+          currentFeature, loadingText, renderedResult, indexing,
+          spotifyUser, spotifyImage,
+          selectFeature, run, bulkIndex,
+        }
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>

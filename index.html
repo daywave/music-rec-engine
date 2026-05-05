@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Mini FPS</title>
+<style>
+  body { margin:0; overflow:hidden; font-family:Arial; }
+  #hud {
+    position: absolute;
+    top:10px; left:10px;
+    color:white;
+    background:rgba(0,0,0,0.5);
+    padding:10px;
+  }
+  #crosshair {
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-size:20px;
+    color:white;
+  }
+  #menu {
+    position:absolute;
+    width:100%; height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:black;
+    color:white;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="menu">CLICK PARA JUGAR</div>
+<div id="hud">Vida: 100<br>Arma: Pistola<br>Munición: ∞</div>
+<div id="crosshair">+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script>
+let scene, camera, renderer;
+let player = { health:100, speed:0.1, weapon:"pistol", ammo:Infinity };
+let enemies = [];
+let objects = [];
+let keys = {};
+let yaw = 0, pitch = 0;
+
+init();
+animate();
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x202020);
+
+  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+  camera.position.y = 1.6;
+
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // Luz
+  const light = new THREE.HemisphereLight(0xffffff, 0x444444);
+  scene.add(light);
+
+  // Suelo
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(100,100),
+    new THREE.MeshBasicMaterial({color:0x555555})
+  );
+  floor.rotation.x = -Math.PI/2;
+  scene.add(floor);
+
+  // Paredes (mapa simple)
+  for(let i=0;i<20;i++){
+    let wall = new THREE.Mesh(
+      new THREE.BoxGeometry(2,2,2),
+      new THREE.MeshBasicMaterial({color:0x888888})
+    );
+    wall.position.set(
+      (Math.random()-0.5)*40,
+      1,
+      (Math.random()-0.5)*40
+    );
+    scene.add(wall);
+    objects.push(wall);
+  }
+
+  // Armas en el mapa
+  spawnWeapon("rifle");
+  spawnWeapon("shotgun");
+
+  // Enemigos
+  for(let i=0;i<5;i++) spawnEnemy();
+
+  // Controles
+  document.addEventListener("keydown", e=>keys[e.key.toLowerCase()] = true);
+  document.addEventListener("keyup", e=>keys[e.key.toLowerCase()] = false);
+
+  document.addEventListener("mousemove", e=>{
+    if(document.pointerLockElement){
+      yaw -= e.movementX * 0.002;
+      pitch -= e.movementY * 0.002;
+      pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+    }
+  });
+
+  document.addEventListener("click", shoot);
+
+  // Pointer lock
+  const menu = document.getElementById("menu");
+  menu.onclick = ()=>{
+    document.body.requestPointerLock();
+    menu.style.display="none";
+  };
+}
+
+function spawnWeapon(type){
+  let color = type==="rifle"?0x00ff00:0xff0000;
+  let mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5,0.5,0.5),
+    new THREE.MeshBasicMaterial({color})
+  );
+  mesh.position.set(
+    (Math.random()-0.5)*40,
+    0.25,
+    (Math.random()-0.5)*40
+  );
+  mesh.userData.type = type;
+  scene.add(mesh);
+  objects.push(mesh);
+}
+
+function spawnEnemy(){
+  let enemy = new THREE.Mesh(
+    new THREE.BoxGeometry(1,2,1),
+    new THREE.MeshBasicMaterial({color:0xff0000})
+  );
+  enemy.position.set(
+    (Math.random()-0.5)*40,
+    1,
+    (Math.random()-0.5)*40
+  );
+  enemy.health = 50;
+  enemies.push(enemy);
+  scene.add(enemy);
+}
+
+function shoot(){
+  let damage = player.weapon==="pistol"?10:
+               player.weapon==="rifle"?20:40;
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+  const intersects = raycaster.intersectObjects(enemies);
+
+  if(intersects.length > 0){
+    let hit = intersects[0].object;
+    hit.health -= damage;
+    if(hit.health <= 0){
+      scene.remove(hit);
+      enemies.splice(enemies.indexOf(hit),1);
+    }
+  }
+}
+
+function updateMovement(){
+  let dir = new THREE.Vector3();
+  if(keys["w"]) dir.z -= 1;
+  if(keys["s"]) dir.z += 1;
+  if(keys["a"]) dir.x -= 1;
+  if(keys["d"]) dir.x += 1;
+
+  dir.normalize();
+
+  const forward = new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
+  const right = new THREE.Vector3(forward.z,0,-forward.x);
+
+  camera.position.add(forward.multiplyScalar(dir.z * player.speed));
+  camera.position.add(right.multiplyScalar(dir.x * player.speed));
+}
+
+function updateEnemies(){
+  enemies.forEach(e=>{
+    let dist = e.position.distanceTo(camera.position);
+
+    if(dist < 15){
+      let dir = camera.position.clone().sub(e.position).normalize();
+      e.position.add(dir.multiplyScalar(0.03));
+
+      if(dist < 2){
+        player.health -= 0.1;
+      }
+    }
+  });
+}
+
+function checkPickups(){
+  objects.forEach(obj=>{
+    if(obj.userData.type){
+      let dist = obj.position.distanceTo(camera.position);
+      if(dist < 2){
+        player.weapon = obj.userData.type;
+        scene.remove(obj);
+      }
+    }
+  });
+}
+
+function updateHUD(){
+  document.getElementById("hud").innerHTML =
+    `Vida: ${Math.floor(player.health)}<br>
+     Arma: ${player.weapon}<br>
+     Munición: ∞`;
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
+  updateMovement();
+  updateEnemies();
+  checkPickups();
+  updateHUD();
+
+  if(player.health <= 0){
+    alert("GAME OVER");
+    location.reload();
+  }
+
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>

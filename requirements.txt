@@ -1,0 +1,7 @@
+pinecone
+google-genai
+spotipy
+python-dotenv
+rich
+fastapi
+uvicorn
