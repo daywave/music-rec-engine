@@ -266,6 +266,8 @@ Rules:
 - Mix Freudian/Jungian language with music criticism
 - Find the tension between what they listen to publicly vs privately
 - Be bold with your reads — hedging is boring
-- This should feel like a therapy session they didn't ask for but needed""",
-        max_tokens=2000,
+- This should feel like a therapy session they didn't ask for but needed
+- Keep each section to 3-4 sentences MAX. Precision over length. Hit hard, move on.
+- Total response under 800 words.""",
+        max_tokens=4000,
     )
