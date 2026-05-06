@@ -72,11 +72,11 @@
       <!-- Welcome message -->
       <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center">
         <div class="text-5xl mb-4">🎵</div>
-        <h2 class="text-xl font-bold text-white mb-2">What are you in the mood for?</h2>
+        <h2 class="text-xl font-bold text-white mb-2">Let's talk music.</h2>
         <p class="text-sm text-gray-500 max-w-md mb-8">
-          Ask me anything about music. I'll search, recommend, analyze, roast, debate — whatever you need.
+          Chat about anything music-related, or use <span class="text-accent">/commands</span> for specific features.
           <span v-if="!spotifyUser" class="text-spotify"> Connect Spotify for personalized features.</span>
-          <span v-else class="text-mint"> Your taste profile is loaded — responses are personalized.</span>
+          <span v-else class="text-mint"> Your taste profile is loaded — all responses are personalized.</span>
         </p>
         <div class="flex flex-wrap justify-center gap-2">
           <button v-for="s in suggestions" :key="s" @click="sendMessage(s)" class="px-4 py-2 bg-dark-100 border border-gray-700 rounded-full text-xs text-gray-400 hover:text-white hover:border-accent/40 transition">
@@ -175,7 +175,7 @@
       </div>
       <div class="flex items-center justify-between mt-2">
         <p class="text-[10px] text-gray-600">
-          Try: "roast my taste" · "debate kanye west" · "music for a rainy morning → gym → party" · "why do I like aphex twin?"
+          Chat freely or use commands: /search · /dna · /roast · /debate · /match · /discover · /myday · /timeline
         </p>
       </div>
     </div>
@@ -197,14 +197,15 @@
         const loadingText = ref('Thinking...')
 
         const suggestions = [
-          '🔍 aggressive electronic music',
-          '🧬 why does Aphex Twin sound like that?',
-          '🔥 roast my music taste',
-          '🌅 morning coffee → gym → chill evening',
-          '📅 build me a daily playlist',
-          '🧭 discover new music for me',
-          '⚖️ debate: is autotune ruining music?',
-          '💘 compare me with someone who likes Radiohead',
+          'who influenced Aphex Twin?',
+          '/search aggressive electronic',
+          '/dna Windowlicker by Aphex Twin',
+          '/roast',
+          '/debate kanye west',
+          '/match radiohead, tame impala',
+          '/discover',
+          '/myday',
+          'what makes shoegaze different from dream pop?',
         ]
 
         const intentLabels = {

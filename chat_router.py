@@ -1,6 +1,7 @@
-"""Unified chat router — detects intent and routes to the right feature."""
+"""Unified chat router — slash commands + AI intent detection + free chat."""
 
 import json
+import re
 
 import spotipy
 
@@ -10,25 +11,68 @@ from taste import get_taste_profile, taste_to_text, get_all_taste_artists
 from features import track_dna, mood_timeline, music_debate
 
 
+# ─── Slash command parser ────────────────────────────────────────────
+
+COMMANDS = {
+    "/search": "search",
+    "/recommend": "search",
+    "/rec": "search",
+    "/dna": "track_dna",
+    "/trackdna": "track_dna",
+    "/roast": "roast",
+    "/taste": "taste",
+    "/timeline": "mood_timeline",
+    "/mytimeline": "auto_timeline",
+    "/myday": "auto_timeline",
+    "/matchmaker": "matchmaker",
+    "/match": "matchmaker",
+    "/debate": "debate",
+    "/discover": "discover",
+    "/explore": "discover",
+}
+
+
+def parse_slash_command(message: str) -> tuple[str | None, str]:
+    """Parse /command from message. Returns (intent, remaining_text) or (None, message)."""
+    stripped = message.strip()
+    if not stripped.startswith("/"):
+        return None, message
+
+    parts = stripped.split(None, 1)
+    cmd = parts[0].lower()
+    args = parts[1] if len(parts) > 1 else ""
+
+    if cmd in COMMANDS:
+        return COMMANDS[cmd], args
+
+    return None, message
+
+
+# ─── AI intent detection (only for non-slash messages) ───────────────
+
 def detect_intent(message: str, has_spotify: bool) -> dict:
-    """Use Gemini to detect what the user wants."""
+    """Use Gemini to detect intent — only called when no slash command."""
     result = generate(
         prompt=message,
-        system=f"""Classify this music-related message into ONE intent. Return ONLY a JSON object.
+        system=f"""Classify this music-related message. Return ONLY a JSON object.
 
-Available intents:
-- "search" — user wants music recommendations or is describing a vibe/mood
-- "track_dna" — user wants to understand WHY a specific track/artist sounds the way it does
-- "roast" — user wants their music taste roasted (keywords: roast, judge, critique my taste)
-- "mood_timeline" — user describes a day/schedule and wants a playlist for it (keywords: morning, day, schedule, timeline, but WITH a description of the day)
-- "auto_timeline" — user wants a personalized daily playlist based on their listening history, WITHOUT describing a specific day (keywords: my day, playlist for me, daily playlist, make me a timeline, what should I listen to today)
-- "matchmaker" — user wants to compare taste with someone (keywords: friend likes, compare, match, compatibility)
-- "debate" — user wants a debate about a track/artist (keywords: debate, argue, defend, overrated)
-- "taste" — user asks about their own taste or wants it explained (keywords: my taste, what do I like, analyze me)
-- "discover" — user wants to discover new music based on their taste, expand their library (keywords: discover, find new music, expand, something new, surprise me, explore)
-- "chat" — general music chat, questions, or anything that doesn't fit above
+Intents (pick the BEST match, default to "chat" for general conversation):
+- "search" — user explicitly asks for recommendations or describes a vibe they want music for
+- "track_dna" — user asks WHY a specific track/artist sounds the way it does
+- "roast" — user wants their music taste roasted
+- "mood_timeline" — user describes a day/schedule for a playlist (WITH day description)
+- "auto_timeline" — user wants a daily playlist from their history (NO day description)
+- "matchmaker" — user wants to compare taste with someone
+- "debate" — user wants a debate about a track/artist
+- "taste" — user asks about their own listening taste
+- "discover" — user wants to find new music based on their taste
+- "chat" — general music discussion, questions, opinions, history, theory, anything conversational
 
-Return: {{"intent": "...", "query": "the relevant search/topic query", "artists": ["if matchmaker, friend's artists"]}}
+IMPORTANT: Default to "chat" for general questions like "what do you think about X",
+"tell me about X", "who influenced X", "is X good". Only use specific intents when
+the user clearly wants that feature.
+
+Return: {{"intent": "...", "query": "the relevant topic/query", "artists": ["if matchmaker"]}}
 Only return the JSON.""",
         max_tokens=200,
     )
@@ -39,8 +83,10 @@ Only return the JSON.""",
             clean = clean.split("\n", 1)[1].rsplit("```", 1)[0]
         return json.loads(clean)
     except (json.JSONDecodeError, IndexError):
-        return {"intent": "search", "query": message}
+        return {"intent": "chat", "query": message}
 
+
+# ─── Main router ────────────────────────────────────────────────────
 
 def chat_with_context(
     message: str,
@@ -50,9 +96,22 @@ def chat_with_context(
 ) -> dict:
     """Process a chat message with taste context and return response + tracks."""
     has_spotify = sp is not None
-    intent_data = detect_intent(message, has_spotify)
-    intent = intent_data.get("intent", "chat")
-    query = intent_data.get("query", message)
+
+    # Step 1: Check for slash command
+    slash_intent, slash_args = parse_slash_command(message)
+
+    if slash_intent:
+        intent = slash_intent
+        query = slash_args or message
+        intent_data = {"intent": intent, "query": query, "artists": []}
+        # Parse artists for matchmaker: /match artist1, artist2
+        if intent == "matchmaker" and slash_args:
+            intent_data["artists"] = [a.strip() for a in slash_args.split(",") if a.strip()]
+    else:
+        # Step 2: AI intent detection for natural messages
+        intent_data = detect_intent(message, has_spotify)
+        intent = intent_data.get("intent", "chat")
+        query = intent_data.get("query", message)
 
     tracks = []
     response = ""
@@ -64,14 +123,15 @@ USER'S MUSIC TASTE PROFILE (use this to personalize your response):
 {taste_text}
 """
 
-    # Build conversation context from history
     history_context = ""
     if history:
-        recent = history[-6:]  # last 3 exchanges
+        recent = history[-6:]
         history_context = "\nRecent conversation:\n" + "\n".join(
             f"{'User' if m['role'] == 'user' else 'Assistant'}: {m['content'][:200]}"
             for m in recent
         )
+
+    # ─── Route to feature ────────────────────────────────────────
 
     if intent == "search":
         tracks = search_tracks(query, top_k=5)
@@ -113,26 +173,23 @@ relate to what they already like. Be conversational and brief.""",
     elif intent == "matchmaker" and has_spotify:
         friend_artists = intent_data.get("artists", [])
         if not friend_artists:
-            # Try to extract artists from the message
             friend_artists = [a.strip() for a in query.split(",") if a.strip()]
         if friend_artists:
             from features import music_matchmaker
             response = music_matchmaker(friend_artists, sp=sp)
         else:
             response = ("**Two ways to match:**\n\n"
-                "1. **Type artists:** *'compare me with someone who likes Radiohead, Tame Impala'*\n"
-                "2. **Share a link:** Click the 💘 button below to generate a link — "
-                "send it to your friend, they connect their Spotify, and I'll compare your real listening data!\n\n"
+                "1. **Type artists:** `/match radiohead, tame impala, daft punk`\n"
+                "2. **Share a link:** Click the 💘 button below — "
+                "send it to your friend, they connect Spotify, and I compare your real data!\n\n"
                 "Which do you prefer?")
 
     elif intent == "debate":
         response = music_debate(query)
 
     elif intent == "discover" and has_spotify:
-        # Index new discovery tracks, then search for the best ones
         from indexer import index_discovery
         index_discovery(sp=sp)
-        # Now search with their taste as query
         tracks = search_tracks(taste_context or message, top_k=10)
         tracks_text = "\n".join(
             f"- {t['name']} by {t['artist']} ({', '.join(t.get('genres', [])[:2])})"
@@ -140,8 +197,7 @@ relate to what they already like. Be conversational and brief.""",
         )
         response = generate(
             prompt=f"User asked: {message}",
-            system=f"""You are a music discovery assistant. You just expanded the user's catalog
-with NEW music based on their taste. Here are fresh discoveries:
+            system=f"""You are a music discovery assistant. Fresh discoveries:
 
 {tracks_text}
 
@@ -149,15 +205,16 @@ with NEW music based on their taste. Here are fresh discoveries:
 
 Present these as exciting discoveries. For each track:
 1. Why it connects to their existing taste
-2. What's NEW and different about it — what it adds to their palette
-3. A "listen if you like X" comparison to an artist they already know
+2. What's NEW and different about it
+3. A "listen if you like X" comparison
 
-Make it feel like a curated discovery, not a list. Be enthusiastic but specific.""",
+Be enthusiastic but specific.""",
         )
 
     else:
-        # General chat with taste context
-        tracks = search_tracks(message, top_k=3)
+        # General music chat — conversational, knowledgeable
+        # Optionally pull relevant tracks for context
+        tracks = search_tracks(message, top_k=3) if len(message) > 10 else []
         tracks_text = ""
         if tracks:
             tracks_text = "\nRelevant tracks from our database:\n" + "\n".join(
@@ -166,19 +223,27 @@ Make it feel like a curated discovery, not a list. Be enthusiastic but specific.
 
         response = generate(
             prompt=message,
-            system=f"""You are a knowledgeable music assistant. You love discussing music
-in all its forms — history, production, culture, recommendations.
+            system=f"""You are a passionate, knowledgeable music companion. You can discuss:
+- Music history, genres, movements, and cultural impact
+- Production techniques, music theory, songwriting
+- Artist stories, album deep dives, discographies
+- Opinions, hot takes, and music debates
+- Recommendations woven naturally into conversation
 {taste_context}
 {history_context}
 {tracks_text}
 
-Be conversational, insightful, and personalized based on the user's taste when relevant.
-If the user needs Spotify login for a feature, mention they can connect Spotify.""",
+Be conversational, opinionated, and engaging. Share interesting facts and connections.
+Personalize based on the user's taste when relevant.
+Keep responses focused and concise — no walls of text.
+
+If the user might benefit from a specific feature, mention the slash command:
+/search, /dna, /roast, /taste, /timeline, /myday, /match, /debate, /discover""",
         )
 
     # If intent needed Spotify but user isn't logged in
     if intent in ("roast", "taste", "matchmaker", "auto_timeline", "discover") and not has_spotify:
-        response = f"I'd love to {intent.replace('_', ' ')} for you, but I need access to your Spotify data first. Connect your Spotify account using the button above!"
+        response = f"I'd love to do that, but I need your Spotify data. Connect your account using the button above!"
         tracks = []
 
     return {
