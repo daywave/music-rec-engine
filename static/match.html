@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Music Matchmaker 💘</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { 100: '#1e1e2e', 200: '#181825', 300: '#11111b', 400: '#0a0a14' },
+            accent: { DEFAULT: '#a78bfa', light: '#c4b5fd' },
+            spotify: '#1DB954',
+            pink: { 400: '#f472b6', 500: '#ec4899' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .prose h1, .prose h2, .prose h3 { color: #f472b6; margin-top: 0.8em; margin-bottom: 0.4em; font-weight: 600; }
+    .prose h2 { font-size: 1.15em; } .prose h3 { font-size: 1.05em; }
+    .prose p { margin-bottom: 0.6em; line-height: 1.7; }
+    .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 0.6em; }
+    .prose li { margin-bottom: 0.2em; }
+    .prose strong { color: #f472b6; } .prose em { color: #6ee7b7; }
+    .pulse-dot { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+  </style>
+</head>
+<body class="bg-dark-300 text-gray-200 min-h-screen flex items-center justify-center">
+  <div id="app" class="max-w-2xl w-full mx-auto p-8">
+
+    <!-- Loading -->
+    <div v-if="loading" class="text-center">
+      <div class="text-5xl mb-4">💘</div>
+      <p class="text-gray-400">Loading match...</p>
+    </div>
+
+    <!-- Not found -->
+    <div v-else-if="notFound" class="text-center">
+      <div class="text-5xl mb-4">🤷</div>
+      <h2 class="text-xl font-bold text-white mb-2">Match not found</h2>
+      <p class="text-gray-500">This link may have expired.</p>
+      <a href="/" class="mt-4 inline-block text-accent hover:text-accent-light">Go to Music Rec Engine →</a>
+    </div>
+
+    <!-- Waiting for friend -->
+    <div v-else-if="status === 'waiting'" class="text-center">
+      <div class="text-5xl mb-4">💘</div>
+      <h2 class="text-xl font-bold text-white mb-2">{{ creatorName }} wants to match music taste with you!</h2>
+      <p class="text-gray-400 mb-6">Connect your Spotify so we can compare your listening data.</p>
+      <a :href="'/auth/login?match_id=' + matchId" class="inline-flex items-center gap-2 px-8 py-3 bg-spotify hover:bg-spotify/80 text-white rounded-xl font-medium transition text-lg">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        Connect Spotify
+      </a>
+      <p class="text-[11px] text-gray-600 mt-4">We only read your top tracks. Nothing is stored permanently.</p>
+    </div>
+
+    <!-- Results -->
+    <div v-else-if="status === 'complete'" class="space-y-6">
+      <div class="text-center mb-8">
+        <div class="text-5xl mb-3">💘</div>
+        <h2 class="text-xl font-bold text-white">{{ creatorName }} × {{ friendName }}</h2>
+        <p class="text-sm text-gray-500">Music Compatibility Report</p>
+      </div>
+
+      <!-- Track cards -->
+      <div v-if="tracks.length" class="space-y-1.5">
+        <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Shared Vibes</p>
+        <div v-for="(track, i) in tracks.slice(0, 5)" :key="i" class="flex items-center gap-3 bg-dark-400/60 border border-gray-800 rounded-lg px-3 py-2">
+          <span class="text-pink-400/60 font-mono text-xs w-5">{{ i + 1 }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-white text-xs font-medium truncate">{{ track.name }}</div>
+            <div class="text-gray-500 text-[11px] truncate">{{ track.artist }}</div>
+          </div>
+          <div class="text-[10px] text-pink-400/50 font-mono">{{ (track.score * 100).toFixed(0) }}%</div>
+        </div>
+      </div>
+
+      <!-- AI response -->
+      <div class="bg-dark-200/50 border border-gray-800 rounded-xl p-6">
+        <div class="prose text-gray-300 text-sm leading-relaxed" v-html="renderedResult"></div>
+      </div>
+
+      <div class="text-center">
+        <a href="/" class="text-accent hover:text-accent-light text-sm">Try Music Rec Engine →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue
+
+    createApp({
+      setup() {
+        const loading = ref(true)
+        const notFound = ref(false)
+        const status = ref('')
+        const creatorName = ref('')
+        const friendName = ref('')
+        const result = ref('')
+        const tracks = ref([])
+
+        const matchId = window.location.pathname.split('/match/')[1]
+
+        const renderedResult = computed(() => result.value ? marked.parse(result.value) : '')
+
+        async function checkMatch() {
+          try {
+            const res = await fetch(`/api/match/${matchId}`)
+            if (!res.ok) {
+              notFound.value = true
+              loading.value = false
+              return
+            }
+            const data = await res.json()
+            status.value = data.status
+            creatorName.value = data.creator_name
+            friendName.value = data.friend_name || ''
+            result.value = data.response || ''
+            tracks.value = data.tracks || []
+          } catch (e) {
+            notFound.value = true
+          } finally {
+            loading.value = false
+          }
+        }
+
+        onMounted(checkMatch)
+
+        return { loading, notFound, status, creatorName, friendName, result, tracks, matchId, renderedResult }
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>

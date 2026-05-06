@@ -12,7 +12,7 @@
       theme: {
         extend: {
           colors: {
-            dark: { 50: '#f8fafc', 100: '#1e1e2e', 200: '#181825', 300: '#11111b', 400: '#0a0a14' },
+            dark: { 100: '#1e1e2e', 200: '#181825', 300: '#11111b', 400: '#0a0a14' },
             accent: { DEFAULT: '#a78bfa', light: '#c4b5fd', dark: '#7c3aed' },
             mint: '#6ee7b7',
             rose: '#fda4af',
@@ -25,248 +25,227 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
-    .prose h1, .prose h2, .prose h3 { color: #c4b5fd; margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; }
-    .prose h1 { font-size: 1.5em; }
-    .prose h2 { font-size: 1.25em; }
-    .prose h3 { font-size: 1.1em; }
-    .prose p { margin-bottom: 0.75em; line-height: 1.7; }
-    .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 0.75em; }
-    .prose li { margin-bottom: 0.25em; }
-    .prose strong { color: #a78bfa; }
-    .prose em { color: #6ee7b7; }
-    .prose code { background: rgba(167, 139, 250, 0.15); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; }
+    .prose h1, .prose h2, .prose h3 { color: #c4b5fd; margin-top: 0.8em; margin-bottom: 0.4em; font-weight: 600; }
+    .prose h1 { font-size: 1.3em; } .prose h2 { font-size: 1.15em; } .prose h3 { font-size: 1.05em; }
+    .prose p { margin-bottom: 0.6em; line-height: 1.7; }
+    .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 0.6em; }
+    .prose li { margin-bottom: 0.2em; }
+    .prose strong { color: #a78bfa; } .prose em { color: #6ee7b7; }
+    .prose code { background: rgba(167,139,250,0.15); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
     .pulse-dot { animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-    ::-webkit-scrollbar { width: 6px; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: #11111b; }
     ::-webkit-scrollbar-thumb { background: #313244; border-radius: 3px; }
+    .chat-scroll { scroll-behavior: smooth; }
   </style>
 </head>
-<body class="bg-dark-300 text-gray-200 min-h-screen">
-  <div id="app" class="flex h-screen overflow-hidden">
+<body class="bg-dark-300 text-gray-200 h-screen overflow-hidden">
+  <div id="app" class="flex flex-col h-screen max-w-4xl mx-auto">
 
-    <!-- Sidebar -->
-    <aside class="w-72 bg-dark-400 border-r border-gray-800 flex flex-col">
-      <div class="p-6 border-b border-gray-800">
-        <h1 class="text-xl font-bold text-white flex items-center gap-2">
-          <span class="text-2xl">🎵</span> Music Rec Engine
-        </h1>
-        <p class="text-xs text-gray-500 mt-1">Pinecone + Gemini + Spotify</p>
-      </div>
-
-      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-        <button
-          v-for="feature in features"
-          :key="feature.id"
-          @click="selectFeature(feature.id)"
-          :class="[
-            'w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3 group',
-            active === feature.id
-              ? 'bg-accent/20 text-accent-light border border-accent/30'
-              : 'hover:bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
-          ]"
-        >
-          <span class="text-lg">{{ feature.icon }}</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium flex items-center gap-2">
-              {{ feature.name }}
-              <span v-if="feature.needsSpotify" class="text-[10px] text-spotify bg-spotify/10 px-1.5 py-0.5 rounded-full">Spotify</span>
-            </div>
-            <div class="text-xs text-gray-500 group-hover:text-gray-400">{{ feature.desc }}</div>
-          </div>
-        </button>
-      </nav>
-
-      <!-- Spotify auth + bulk index -->
-      <div class="p-4 border-t border-gray-800 space-y-2">
-        <!-- Spotify login/status -->
-        <div v-if="spotifyUser" class="flex items-center gap-3 px-3 py-2 bg-spotify/10 rounded-lg">
-          <img v-if="spotifyImage" :src="spotifyImage" class="w-7 h-7 rounded-full" />
-          <div v-else class="w-7 h-7 rounded-full bg-spotify/30 flex items-center justify-center text-xs text-spotify">♪</div>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm text-spotify font-medium truncate">{{ spotifyUser }}</div>
-            <div class="text-[10px] text-gray-500">Connected</div>
-          </div>
-          <a href="/auth/logout" class="text-xs text-gray-500 hover:text-gray-300">Logout</a>
+    <!-- Header -->
+    <header class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🎵</span>
+        <div>
+          <h1 class="text-lg font-bold text-white">Music Rec Engine</h1>
+          <p class="text-[11px] text-gray-500">Pinecone + Gemini + Spotify</p>
         </div>
-        <a
-          v-else
-          href="/auth/login"
-          class="flex items-center justify-center gap-2 px-4 py-2.5 bg-spotify/90 hover:bg-spotify text-white text-sm rounded-lg transition font-medium"
-        >
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Spotify status -->
+        <div v-if="spotifyUser" class="flex items-center gap-2 bg-spotify/10 px-3 py-1.5 rounded-full">
+          <img v-if="spotifyImage" :src="spotifyImage" class="w-5 h-5 rounded-full" />
+          <span class="text-xs text-spotify font-medium">{{ spotifyUser }}</span>
+          <a href="/auth/logout" class="text-[10px] text-gray-500 hover:text-gray-300 ml-1">✕</a>
+        </div>
+        <a v-else href="/auth/login" class="flex items-center gap-2 px-4 py-2 bg-spotify/90 hover:bg-spotify text-white text-xs rounded-full transition font-medium">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
           Connect Spotify
         </a>
-
-        <button
-          @click="bulkIndex"
-          :disabled="indexing"
-          class="w-full px-4 py-2 bg-mint/10 text-mint text-sm rounded-lg hover:bg-mint/20 transition disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          <span v-if="indexing" class="pulse-dot">●</span>
-          <span>{{ indexing ? 'Indexing...' : '📦 Bulk Index Catalog' }}</span>
-        </button>
       </div>
-    </aside>
+    </header>
 
-    <!-- Main content -->
-    <main class="flex-1 flex flex-col overflow-hidden">
-      <header class="px-8 py-5 border-b border-gray-800 bg-dark-200/50">
-        <h2 class="text-lg font-semibold text-white">{{ currentFeature.name }}</h2>
-        <p class="text-sm text-gray-500">{{ currentFeature.longDesc }}</p>
-      </header>
+    <!-- Chat messages -->
+    <div ref="chatContainer" class="flex-1 overflow-y-auto chat-scroll px-6 py-6 space-y-6">
 
-      <div class="flex-1 overflow-y-auto p-8">
-        <div class="max-w-3xl mx-auto">
-
-          <!-- Spotify login prompt for features that need it -->
-          <div v-if="currentFeature.needsSpotify && !spotifyUser" class="mb-6 bg-spotify/5 border border-spotify/20 rounded-xl p-6 text-center">
-            <p class="text-gray-400 mb-3">This feature requires your Spotify data</p>
-            <a href="/auth/login" class="inline-flex items-center gap-2 px-6 py-2.5 bg-spotify hover:bg-spotify/80 text-white rounded-lg font-medium transition">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-              Connect Spotify to Continue
-            </a>
-          </div>
-
-          <!-- Search -->
-          <div v-if="active === 'search'" class="space-y-4">
-            <div class="flex gap-3">
-              <input v-model="inputs.search" @keyup.enter="run" placeholder="e.g., aggressive electronic music, chill vibes..." class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
-              <button @click="run" :disabled="loading" class="px-6 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Search</button>
-            </div>
-          </div>
-
-          <!-- Explain Taste -->
-          <div v-if="active === 'taste' && spotifyUser" class="space-y-4">
-            <div class="bg-dark-400/50 border border-gray-700 rounded-xl p-6 text-center">
-              <p class="text-gray-400 mb-4">Analyzes your Spotify top tracks across three time periods</p>
-              <button @click="run" :disabled="loading" class="px-8 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Analyze My Taste</button>
-            </div>
-          </div>
-
-          <!-- Track DNA -->
-          <div v-if="active === 'track-dna'" class="space-y-4">
-            <div class="flex gap-3">
-              <input v-model="inputs.trackDna" @keyup.enter="run" placeholder="e.g., Windowlicker by Aphex Twin..." class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
-              <button @click="run" :disabled="loading" class="px-6 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Analyze</button>
-            </div>
-          </div>
-
-          <!-- Playlist Roast -->
-          <div v-if="active === 'roast' && spotifyUser" class="space-y-4">
-            <div class="bg-dark-400/50 border border-gray-700 rounded-xl p-6 text-center">
-              <p class="text-gray-400 mb-4">Get your music taste brutally (but lovingly) roasted</p>
-              <button @click="run" :disabled="loading" class="px-8 py-3 bg-rose/80 hover:bg-rose text-dark-300 rounded-xl font-medium transition disabled:opacity-50">🔥 Roast Me</button>
-            </div>
-          </div>
-
-          <!-- Mood Timeline -->
-          <div v-if="active === 'mood-timeline'" class="space-y-4">
-            <textarea v-model="inputs.moodTimeline" @keyup.ctrl.enter="run" placeholder="Describe your day...&#10;e.g., morning coffee → stressful meetings → gym → chill evening" rows="3" class="w-full bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition resize-none"></textarea>
-            <button @click="run" :disabled="loading" class="px-8 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Build Timeline</button>
-          </div>
-
-          <!-- Music Matchmaker -->
-          <div v-if="active === 'matchmaker'" class="space-y-4">
-            <div v-if="spotifyUser">
-              <label class="text-sm text-gray-400 mb-2 block">Your friend's favorite artists (comma-separated)</label>
-              <input v-model="inputs.matchmaker" @keyup.enter="run" placeholder="e.g., radiohead, boards of canada, four tet" class="w-full bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
-              <button @click="run" :disabled="loading" class="mt-4 px-8 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">Find Common Ground</button>
-            </div>
-          </div>
-
-          <!-- Music Debate -->
-          <div v-if="active === 'debate'" class="space-y-4">
-            <div class="flex gap-3">
-              <input v-model="inputs.debate" @keyup.enter="run" placeholder="e.g., Kanye West, trap music, autotune..." class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-5 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition" />
-              <button @click="run" :disabled="loading" class="px-6 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-50">⚖️ Debate</button>
-            </div>
-          </div>
-
-          <!-- Loading -->
-          <div v-if="loading" class="mt-8 flex items-center gap-3 text-gray-400">
-            <div class="flex gap-1">
-              <span class="pulse-dot text-accent">●</span>
-              <span class="pulse-dot text-accent" style="animation-delay: 0.3s">●</span>
-              <span class="pulse-dot text-accent" style="animation-delay: 0.6s">●</span>
-            </div>
-            <span class="text-sm">{{ loadingText }}</span>
-          </div>
-
-          <!-- Error -->
-          <div v-if="error" class="mt-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-            <p class="text-red-400 text-sm">{{ error }}</p>
-          </div>
-
-          <!-- Result -->
-          <div v-if="result && !loading" class="mt-8">
-            <div v-if="tracks.length" class="mb-6 grid gap-2">
-              <div v-for="(track, i) in tracks" :key="track.id" class="flex items-center gap-4 bg-dark-400/50 border border-gray-800 rounded-lg px-4 py-3 hover:border-accent/30 transition">
-                <span class="text-accent font-mono text-sm w-6">{{ i + 1 }}</span>
-                <div class="flex-1 min-w-0">
-                  <div class="text-white text-sm font-medium truncate">{{ track.name }}</div>
-                  <div class="text-gray-500 text-xs truncate">{{ track.artist }} · {{ track.album }}</div>
-                </div>
-                <div class="text-xs text-accent/70 font-mono">{{ (track.score * 100).toFixed(0) }}%</div>
-              </div>
-            </div>
-            <div class="bg-dark-400/30 border border-gray-800 rounded-xl p-6">
-              <div class="prose text-gray-300 text-sm leading-relaxed" v-html="renderedResult"></div>
-            </div>
-          </div>
-
+      <!-- Welcome message -->
+      <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center">
+        <div class="text-5xl mb-4">🎵</div>
+        <h2 class="text-xl font-bold text-white mb-2">What are you in the mood for?</h2>
+        <p class="text-sm text-gray-500 max-w-md mb-8">
+          Ask me anything about music. I'll search, recommend, analyze, roast, debate — whatever you need.
+          <span v-if="!spotifyUser" class="text-spotify"> Connect Spotify for personalized features.</span>
+          <span v-else class="text-mint"> Your taste profile is loaded — responses are personalized.</span>
+        </p>
+        <div class="flex flex-wrap justify-center gap-2">
+          <button v-for="s in suggestions" :key="s" @click="sendMessage(s)" class="px-4 py-2 bg-dark-100 border border-gray-700 rounded-full text-xs text-gray-400 hover:text-white hover:border-accent/40 transition">
+            {{ s }}
+          </button>
         </div>
       </div>
-    </main>
+
+      <!-- Messages -->
+      <div v-for="(msg, i) in messages" :key="i">
+        <!-- User message -->
+        <div v-if="msg.role === 'user'" class="flex justify-end">
+          <div class="max-w-[75%] bg-accent/20 border border-accent/20 rounded-2xl rounded-tr-md px-4 py-3">
+            <p class="text-sm text-white">{{ msg.content }}</p>
+          </div>
+        </div>
+
+        <!-- Assistant message -->
+        <div v-else class="flex justify-start">
+          <div class="max-w-[85%] space-y-3">
+            <!-- Intent badge -->
+            <div v-if="msg.intent && msg.intent !== 'chat'" class="flex items-center gap-2">
+              <span class="text-[10px] px-2 py-0.5 rounded-full border" :class="intentBadge(msg.intent)">
+                {{ intentLabel(msg.intent) }}
+              </span>
+            </div>
+
+            <!-- Track cards -->
+            <div v-if="msg.tracks && msg.tracks.length" class="space-y-1.5">
+              <div v-for="(track, j) in msg.tracks" :key="j" class="flex items-center gap-3 bg-dark-400/60 border border-gray-800 rounded-lg px-3 py-2 hover:border-accent/20 transition">
+                <span class="text-accent/60 font-mono text-xs w-5">{{ j + 1 }}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-white text-xs font-medium truncate">{{ track.name }}</div>
+                  <div class="text-gray-500 text-[11px] truncate">{{ track.artist }}</div>
+                  <div v-if="track.genres && track.genres.length" class="flex gap-1 mt-1">
+                    <span v-for="g in track.genres.slice(0,3)" :key="g" class="text-[9px] px-1.5 py-0.5 bg-accent/10 text-accent/60 rounded">{{ g }}</span>
+                  </div>
+                </div>
+                <div class="text-[10px] text-accent/50 font-mono">{{ (track.score * 100).toFixed(0) }}%</div>
+              </div>
+            </div>
+
+            <!-- Response text -->
+            <div class="bg-dark-200/50 border border-gray-800 rounded-2xl rounded-tl-md px-5 py-4">
+              <div class="prose text-gray-300 text-sm leading-relaxed" v-html="renderMd(msg.content)"></div>
+            </div>
+
+            <!-- Match link button (shows on matchmaker intent) -->
+            <div v-if="msg.intent === 'matchmaker' && !msg.tracks?.length && spotifyUser" class="mt-2">
+              <button @click="generateMatchLink" :disabled="generatingMatch" class="px-4 py-2 bg-pink-500/20 hover:bg-pink-500/30 text-pink-400 text-xs rounded-lg border border-pink-500/30 transition">
+                {{ generatingMatch ? 'Generating...' : '💘 Generate Match Link' }}
+              </button>
+              <div v-if="matchLink" class="mt-2 flex items-center gap-2">
+                <input :value="matchLink" readonly class="flex-1 bg-dark-400 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white" />
+                <button @click="copyMatchLink" class="px-3 py-2 bg-accent/20 text-accent text-xs rounded-lg hover:bg-accent/30 transition">
+                  {{ copied ? 'Copied!' : 'Copy' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="flex justify-start">
+        <div class="bg-dark-200/50 border border-gray-800 rounded-2xl rounded-tl-md px-5 py-4">
+          <div class="flex items-center gap-2 text-gray-400">
+            <span class="pulse-dot text-accent">●</span>
+            <span class="pulse-dot text-accent" style="animation-delay:0.3s">●</span>
+            <span class="pulse-dot text-accent" style="animation-delay:0.6s">●</span>
+            <span class="text-xs ml-1">{{ loadingText }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="px-6 py-4 border-t border-gray-800 bg-dark-400/30">
+      <div class="flex gap-3 items-end">
+        <textarea
+          ref="inputEl"
+          v-model="input"
+          @keydown.enter.exact.prevent="sendMessage()"
+          placeholder="Ask about music, describe a vibe, request a roast..."
+          rows="1"
+          class="flex-1 bg-dark-400 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition resize-none max-h-32"
+          @input="autoResize"
+        ></textarea>
+        <button
+          @click="sendMessage()"
+          :disabled="loading || !input.trim()"
+          class="px-5 py-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-medium transition disabled:opacity-30 text-sm shrink-0"
+        >
+          Send
+        </button>
+      </div>
+      <div class="flex items-center justify-between mt-2">
+        <p class="text-[10px] text-gray-600">
+          Try: "roast my taste" · "debate kanye west" · "music for a rainy morning → gym → party" · "why do I like aphex twin?"
+        </p>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    const { createApp, ref, computed, onMounted } = Vue
+    const { createApp, ref, nextTick, onMounted } = Vue
 
     createApp({
       setup() {
-        const features = [
-          { id: 'search', name: 'Search & Recommend', icon: '🔍', desc: 'Natural language search', longDesc: 'Describe the vibe you want — get matching tracks with AI explanations.', needsSpotify: false },
-          { id: 'taste', name: 'Explain My Taste', icon: '🧠', desc: 'Spotify taste analysis', longDesc: 'Deep analysis of your listening personality across time periods.', needsSpotify: true },
-          { id: 'track-dna', name: 'Track DNA', icon: '🧬', desc: 'Why does it sound like this?', longDesc: 'Understand what makes a track tick — its sonic lineage and where to go next.', needsSpotify: false },
-          { id: 'roast', name: 'Playlist Roast', icon: '🔥', desc: 'Get roasted', longDesc: 'A brutally funny (but loving) roast of your music taste.', needsSpotify: true },
-          { id: 'mood-timeline', name: 'Mood Timeline', icon: '🌅', desc: 'Playlist for your day', longDesc: 'Describe your day and get a playlist that evolves with each moment.', needsSpotify: false },
-          { id: 'matchmaker', name: 'Music Matchmaker', icon: '💘', desc: 'Compare with a friend', longDesc: 'Find musical common ground between you and a friend.', needsSpotify: true },
-          { id: 'debate', name: 'Music Debate', icon: '⚖️', desc: 'SOUND COURT', longDesc: 'Two AI critics battle it out over a track or artist. Who wins?', needsSpotify: false },
-        ]
-
-        const active = ref('search')
+        const messages = ref([])
+        const input = ref('')
         const loading = ref(false)
-        const result = ref('')
-        const tracks = ref([])
-        const error = ref('')
-        const indexing = ref(false)
         const spotifyUser = ref(null)
         const spotifyImage = ref(null)
+        const chatContainer = ref(null)
+        const inputEl = ref(null)
+        const loadingText = ref('Thinking...')
 
-        const inputs = ref({
-          search: '', trackDna: '', moodTimeline: '', matchmaker: '', debate: '',
-        })
+        const suggestions = [
+          '🔍 aggressive electronic music',
+          '🧬 why does Aphex Twin sound like that?',
+          '🔥 roast my music taste',
+          '🌅 morning coffee → gym → chill evening',
+          '📅 build me a daily playlist',
+          '🧭 discover new music for me',
+          '⚖️ debate: is autotune ruining music?',
+          '💘 compare me with someone who likes Radiohead',
+        ]
 
-        const currentFeature = computed(() => features.find(f => f.id === active.value) || features[0])
-
-        const loadingTexts = {
-          search: 'Searching and generating recommendations...',
-          taste: 'Analyzing your Spotify listening data...',
-          'track-dna': 'Dissecting track DNA...',
-          roast: 'Preparing your roast... this might hurt...',
-          'mood-timeline': 'Building your mood timeline...',
-          matchmaker: 'Finding common ground...',
-          debate: 'Court is now in session...',
+        const intentLabels = {
+          search: '🔍 Search',
+          track_dna: '🧬 Track DNA',
+          roast: '🔥 Roast',
+          taste: '🧠 Taste Analysis',
+          mood_timeline: '🌅 Mood Timeline',
+          auto_timeline: '📅 Your Daily Playlist',
+          discover: '🧭 Discovery',
+          matchmaker: '💘 Matchmaker',
+          debate: '⚖️ Sound Court',
         }
-        const loadingText = computed(() => loadingTexts[active.value] || 'Thinking...')
-        const renderedResult = computed(() => result.value ? marked.parse(result.value) : '')
 
-        function selectFeature(id) {
-          active.value = id
-          result.value = ''
-          tracks.value = []
-          error.value = ''
+        const intentColors = {
+          search: 'text-accent border-accent/30',
+          track_dna: 'text-cyan-400 border-cyan-400/30',
+          roast: 'text-rose border-rose/30',
+          taste: 'text-purple-400 border-purple-400/30',
+          mood_timeline: 'text-amber-400 border-amber-400/30',
+          auto_timeline: 'text-emerald-400 border-emerald-400/30',
+          discover: 'text-teal-400 border-teal-400/30',
+          matchmaker: 'text-pink-400 border-pink-400/30',
+          debate: 'text-orange-400 border-orange-400/30',
+        }
+
+        function intentLabel(intent) { return intentLabels[intent] || intent }
+        function intentBadge(intent) { return intentColors[intent] || 'text-gray-400 border-gray-600' }
+        function renderMd(text) { return text ? marked.parse(text) : '' }
+
+        function autoResize(e) {
+          const el = e.target
+          el.style.height = 'auto'
+          el.style.height = Math.min(el.scrollHeight, 128) + 'px'
+        }
+
+        async function scrollToBottom() {
+          await nextTick()
+          if (chatContainer.value) {
+            chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+          }
         }
 
         async function checkAuth() {
@@ -280,66 +259,108 @@
           } catch (e) {}
         }
 
-        async function run() {
-          loading.value = true
-          result.value = ''
-          tracks.value = []
-          error.value = ''
+        async function sendMessage(preset) {
+          const text = preset || input.value.trim()
+          if (!text) return
 
-          const endpoints = {
-            search: { url: '/api/search', body: { query: inputs.value.search } },
-            taste: { url: '/api/taste', body: {} },
-            'track-dna': { url: '/api/track-dna', body: { query: inputs.value.trackDna } },
-            roast: { url: '/api/roast', body: {} },
-            'mood-timeline': { url: '/api/mood-timeline', body: { day: inputs.value.moodTimeline } },
-            matchmaker: {
-              url: '/api/matchmaker',
-              body: { friend_artists: inputs.value.matchmaker.split(',').map(s => s.trim()).filter(Boolean) }
-            },
-            debate: { url: '/api/debate', body: { query: inputs.value.debate } },
+          input.value = ''
+          if (inputEl.value) {
+            inputEl.value.style.height = 'auto'
           }
 
-          const ep = endpoints[active.value]
+          // Add user message
+          messages.value.push({ role: 'user', content: text })
+          await scrollToBottom()
+
+          // Detect loading text from intent keywords
+          const lower = text.toLowerCase()
+          if (lower.includes('roast')) loadingText.value = 'Preparing your roast...'
+          else if (lower.includes('debate')) loadingText.value = 'Court is in session...'
+          else if (lower.includes('discover') || lower.includes('new music') || lower.includes('surprise') || lower.includes('explore')) loadingText.value = 'Discovering new music for you... this takes a moment...'
+          else if (lower.includes('daily playlist') || lower.includes('my day') || lower.includes('what should i listen')) loadingText.value = 'Building your personalized timeline...'
+          else if (lower.includes('morning') || lower.includes('day') || lower.includes('→')) loadingText.value = 'Building mood timeline...'
+          else if (lower.includes('taste') || lower.includes('analyze')) loadingText.value = 'Analyzing your taste...'
+          else if (lower.includes('dna') || lower.includes('why does')) loadingText.value = 'Dissecting track DNA...'
+          else if (lower.includes('compare') || lower.includes('match') || lower.includes('friend')) loadingText.value = 'Finding common ground...'
+          else loadingText.value = 'Searching & thinking...'
+
+          loading.value = true
+          await scrollToBottom()
+
           try {
-            const res = await fetch(ep.url, {
+            // Build history for context
+            const history = messages.value.map(m => ({
+              role: m.role,
+              content: m.role === 'user' ? m.content : m.content.substring(0, 200),
+            }))
+
+            const res = await fetch('/api/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(ep.body),
+              body: JSON.stringify({ message: text, history }),
             })
+
             if (!res.ok) {
               const data = await res.json()
               throw new Error(data.detail || `HTTP ${res.status}`)
             }
+
             const data = await res.json()
-            result.value = data.response || ''
-            tracks.value = data.tracks || []
+            messages.value.push({
+              role: 'assistant',
+              content: data.response || 'No response',
+              tracks: data.tracks || [],
+              intent: data.intent,
+            })
           } catch (e) {
-            error.value = e.message
+            messages.value.push({
+              role: 'assistant',
+              content: `**Error:** ${e.message}`,
+              tracks: [],
+            })
           } finally {
             loading.value = false
+            await scrollToBottom()
           }
         }
 
-        async function bulkIndex() {
-          indexing.value = true
+        const generatingMatch = ref(false)
+        const matchLink = ref('')
+        const copied = ref(false)
+
+        async function generateMatchLink() {
+          generatingMatch.value = true
           try {
-            const res = await fetch('/api/index/bulk', { method: 'POST' })
-            if (!res.ok) throw new Error('Indexing failed')
-            alert('Bulk indexing complete!')
+            const res = await fetch('/api/match/create', { method: 'POST' })
+            if (!res.ok) throw new Error('Failed to create match')
+            const data = await res.json()
+            matchLink.value = `${window.location.origin}/match/${data.match_id}`
           } catch (e) {
             alert('Error: ' + e.message)
           } finally {
-            indexing.value = false
+            generatingMatch.value = false
           }
         }
 
-        onMounted(checkAuth)
+        function copyMatchLink() {
+          navigator.clipboard.writeText(matchLink.value)
+          copied.value = true
+          setTimeout(() => copied.value = false, 2000)
+        }
+
+        onMounted(() => {
+          checkAuth()
+          if (inputEl.value) inputEl.value.focus()
+        })
 
         return {
-          features, active, loading, result, tracks, error, inputs,
-          currentFeature, loadingText, renderedResult, indexing,
+          messages, input, loading, loadingText,
           spotifyUser, spotifyImage,
-          selectFeature, run, bulkIndex,
+          chatContainer, inputEl, suggestions,
+          intentLabel, intentBadge, renderMd,
+          autoResize, sendMessage,
+          generatingMatch, matchLink, copied,
+          generateMatchLink, copyMatchLink,
         }
       }
     }).mount('#app')
