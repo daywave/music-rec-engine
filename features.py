@@ -227,78 +227,45 @@ Rules:
 # ─── Feature 7: Auto Timeline (from listening history) ──────────────
 
 def auto_timeline(sp: spotipy.Spotify = None) -> str:
-    """Generate a personalized day timeline based on user's actual listening patterns."""
+    """Psychoanalyze the user's day through their listening patterns."""
     profile = get_taste_profile(limit=10, sp=sp)
     taste_text = taste_to_text(profile)
     artists = get_all_taste_artists(profile)
 
-    # Step 1: Have Gemini analyze listening patterns and map to day segments
-    analysis = generate(
-        prompt=taste_text,
-        system="""Analyze this person's listening data and create a realistic daily playlist
-timeline based on their actual music taste. Map their tracks to times of day where
-each would naturally fit.
-
-Return ONLY a JSON array with 5-6 segments:
-[{"time": "7:00 AM — Morning", "mood": "description of the vibe", "search_query": "specific search to find similar tracks"}]
-
-The search_query should combine artist names and mood words to find good matches.
-Base the moods on the ACTUAL energy levels and vibes of their tracks, not generic assumptions.
-Return only the JSON.""",
-        max_tokens=500,
-    )
-
-    try:
-        clean = analysis.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1].rsplit("```", 1)[0]
-        segments = json.loads(clean)
-    except (json.JSONDecodeError, IndexError):
-        segments = [
-            {"time": "Morning", "mood": "easy start", "search_query": artists[0] if artists else "chill"},
-            {"time": "Midday", "mood": "focused energy", "search_query": artists[1] if len(artists) > 1 else "electronic"},
-            {"time": "Afternoon", "mood": "peak energy", "search_query": artists[2] if len(artists) > 2 else "intense"},
-            {"time": "Evening", "mood": "wind down", "search_query": artists[0] if artists else "ambient"},
-        ]
-
-    # Step 2: Search Pinecone for each segment
-    all_results = []
-    for seg in segments:
-        query = seg.get("search_query", seg["mood"])
-        results = search_tracks(query, top_k=3)
-        all_results.append({
-            "time": seg["time"],
-            "mood": seg["mood"],
-            "tracks": results,
-        })
-
-    # Step 3: Build the narrative
-    playlist_data = ""
-    for seg in all_results:
-        tracks_list = ", ".join(
-            f"{t['name']} by {t['artist']}" for t in seg["tracks"]
-        )
-        playlist_data += f"\n[{seg['time']}] Mood: {seg['mood']}\nTracks: {tracks_list}\n"
-
     return generate(
-        prompt=f"""User's taste profile:
-{taste_text}
+        prompt=taste_text,
+        system="""You are a music psychoanalyst — part therapist, part cultural critic, part detective.
+You're reading someone's soul through their Spotify data.
 
-Generated daily playlist:
-{playlist_data}""",
-        system="""You are a personal DJ who knows this person's taste intimately.
-You've built them a daily playlist based on their actual listening patterns.
+Analyze their listening patterns as a window into their inner life. Structure as a
+psychological day-map — what their music reveals about how they move through a day:
 
-Present the timeline as:
-1. A creative playlist title
-2. Each time segment with:
-   - The time and mood
-   - The tracks and WHY they fit this person specifically at this moment
-   - How each track connects to their known taste
-3. Transitions between segments — how the day's energy flows
-4. A "wildcard pick" — one track outside their comfort zone that would surprise them
+**THE SESSION**
 
-Make it personal. Reference their actual favorite artists and tracks.
-This should feel like a friend who knows their taste made this, not an algorithm.""",
-        max_tokens=1500,
+1. **Morning State** — What do their calm/ambient choices say about how they wake up?
+   Are they easing in or bracing for impact? What are they avoiding by choosing this music?
+
+2. **Midday Patterns** — Their high-energy picks reveal how they cope with pressure.
+   Is this music armor? Fuel? Escapism? What emotional work is this music doing for them?
+
+3. **Afternoon Drift** — The transition tracks expose the gap between who they perform
+   as and who they actually are. What contradiction lives here?
+
+4. **Night Mode** — Their late-night choices are the most honest. What do they listen to
+   when no one is watching? What does this say about what they actually need?
+
+5. **The Diagnosis** — Tie it all together. What emotional arc does their day follow?
+   What are they processing? What pattern keeps repeating? What would break the cycle?
+
+6. **Prescription** — One specific track they've never heard that would unlock something
+   they didn't know they needed. Explain why with precision.
+
+Rules:
+- Reference SPECIFIC tracks and artists from their data — no vague generalizations
+- Be insightful and uncomfortably accurate, but compassionate
+- Mix Freudian/Jungian language with music criticism
+- Find the tension between what they listen to publicly vs privately
+- Be bold with your reads — hedging is boring
+- This should feel like a therapy session they didn't ask for but needed""",
+        max_tokens=2000,
     )
